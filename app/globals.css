@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  @apply bg-white text-gray-900; /* 亮色模式默认 */
+}
+
+.dark {
+  @apply bg-black text-gray-100; /* 暗色模式覆盖 */
 }
 
 @theme inline {
