@@ -13,7 +13,6 @@ interface MessageItem {
   modelName: string;
 }
 
-// Define SubModel and VoiceModelConfig interfaces
 interface SubModel {
   id: string;
   name: string;
