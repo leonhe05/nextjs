@@ -3,138 +3,16 @@
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { PlayIcon, PauseIcon } from '@heroicons/react/24/solid';
 import { SubModel, VoiceModelConfig, modelConfigs } from '../data/modelConfigs'; // Import from the new file
 import { XMarkIcon } from '@heroicons/react/24/outline'; // Import XMarkIcon
-
-interface MessageItem {
-  id: number;
-  text: string;
-  height: number;
-  modelName: string;
-  avator?: string;
-}
-
-function SortableMessage({ message, onDelete, onUpdate, onResize, onMessageFocus }: {
-  message: MessageItem;
-  onDelete: (id: number) => void;
-  onUpdate: (id: number, text: string) => void;
-  onResize: (id: number, height: number) => void;
-  onMessageFocus: (id: number) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: message.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const resizeHandleRef = useRef<HTMLDivElement>(null);
-  const [isResizing, setIsResizing] = useState(false);
-  const [startY, setStartY] = useState(0);
-  const [startHeight, setStartHeight] = useState(0);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-
-      const deltaY = e.clientY - startY;
-      const newHeight = Math.max(100, startHeight + deltaY); // 最小高度为100px
-      onResize(message.id, newHeight);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing, startY, startHeight, message.id, onResize]);
-
-  const handleResizeStart = (e: React.MouseEvent) => {
-    setIsResizing(true);
-    setStartY(e.clientY);
-    setStartHeight(textareaRef.current?.offsetHeight || 0);
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} className="flex gap-4 w-full items-start">
-      <div
-        {...listeners}
-        className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
-      >
-        <Image
-          src={message.avator || "/women.svg"}
-          alt="User avatar"
-          width={40}
-          height={40}
-          className="w-full h-full object-cover"
-          priority
-        />
-      </div>
-      <div className="flex-grow flex flex-col gap-2">
-        <div className="text-xs text-gray-600">
-          <span>{message.modelName}</span>
-        </div>
-        <div className="relative flex-grow flex items-start gap-2">
-          <div className="relative flex-grow">
-            <textarea
-              ref={textareaRef}
-              style={{ height: `${message.height}px` }}
-              className="w-full p-4 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 resize-none text-sm transition-all duration-300 ease-in-out"
-              placeholder="在这里输入文本..."
-              value={message.text}
-              onChange={(e) => onUpdate(message.id, e.target.value)}
-              onFocus={() => onMessageFocus(message.id)}
-            />
-            <div
-              ref={resizeHandleRef}
-              onMouseDown={handleResizeStart}
-              className="absolute bottom-0 left-0 right-0 h-2 cursor-row-resize flex items-center justify-center group"
-            >
-              <div className="w-16 h-1 rounded-full bg-gray-300 group-hover:bg-gray-400 transition-colors duration-200" />
-            </div>
-          </div>
-          <button
-            onClick={() => onDelete(message.id)}
-            className="w-4 h-4 rounded-full bg-gray-300 hover:bg-gray-400 text-gray-600 flex items-center justify-center flex-shrink-0 mt-1"
-          >
-            <svg
-              className="w-2.5 h-2.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20 12H4"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import toast, { Toaster } from 'react-hot-toast'; // Import react-hot-toast
+import { SortableMessage, MessageItem } from './SortableMessage'; // Import the new component and interface
+import { SplitterModal } from './SplitterModal'; // Import the new SplitterModal component
+import { ModelGrid } from './ModelGrid'; // Import the new ModelGrid component
+import { ControlPanel } from './ControlPanel'; // Import the new ControlPanel component
 
 // Main component logic moved here
 export default function HomePageClient() {
@@ -144,11 +22,10 @@ export default function HomePageClient() {
   const defaultModelId = defaultSubModel?.id || 'A1';
   const defaultAvator = defaultSubModel?.avator; // Get default avatar
 
-  // Update initial message state height from 128 to 80 and include avatar
+  // Update initial message state - remove height
   const [messages, setMessages] = useState<MessageItem[]>([{
     id: 1,
     text: "",
-    height: 80,
     modelName: defaultModelName,
     avator: defaultAvator // Add default avatar
   }]);
@@ -167,6 +44,9 @@ export default function HomePageClient() {
   const [pitch, setPitch] = useState(5); // Default pitch 5
   const [volume, setVolume] = useState(5); // Default volume 5
   const [showSplitterModal, setShowSplitterModal] = useState(false); // State for the new modal
+  const [isSplitLoading, setIsSplitLoading] = useState(false); // New state for loading indicator
+  const [synthesizedAudioUrl, setSynthesizedAudioUrl] = useState<string | null>(null); // State for the synthesized audio URL
+  const [isSynthesizing, setIsSynthesizing] = useState(false); // State for synthesis loading
 
   // Find the config for the currently active tab
   const activeConfig = modelConfigs.find(config => config.id === activeTab);
@@ -229,11 +109,10 @@ export default function HomePageClient() {
 
   const addNewMessage = () => {
     const newId = nextId.current;
-    // Add new message with updated default height 80 and default avatar
+    // Add new message - remove height
     setMessages([...messages, {
       id: newId,
       text: "",
-      height: 80,
       modelName: defaultModelName,
       avator: defaultAvator // Use default avatar
     }]);
@@ -264,27 +143,14 @@ export default function HomePageClient() {
     });
   };
 
-  const resizeMessage = (id: number, height: number) => {
-    setMessages(messages.map(msg =>
-      msg.id === id ? { ...msg, height } : msg
-    ));
-    setFocusedMessageId(id);
-  };
-
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
     if (active.id !== over.id) {
       setMessages((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        // Ensure arrayMove is imported or defined
-        // Assuming arrayMove is defined elsewhere as it was before
-        // If not, you'll need to add the arrayMove function back
-        // function arrayMove<T>(array: T[], from: number, to: number): T[] { ... }
         return arrayMove(items, oldIndex, newIndex);
       });
-       // Optionally update focus after drag, e.g., focus the dragged item's new position
-       // setFocusedMessageId(active.id);
     }
   };
 
@@ -372,11 +238,188 @@ export default function HomePageClient() {
     setShowSplitterModal(false);
   };
 
+  // Function to handle the text splitting (now async)
+  const handleSplitConfirm = async (textToSplit: string) => {
+    handleCloseSplitterModal(); // Close modal immediately
+    const segments = textToSplit.split(/(“[^”]*”)/).filter(segment => segment && segment.trim() !== '');
+
+    if (segments && segments.length > 0) {
+      setIsSplitLoading(true); // Start loading
+      setMessages([]); // Clear existing messages
+
+      await new Promise(resolve => setTimeout(resolve, 100)); // Small initial delay before first item
+
+      for (const segment of segments) {
+        let text = segment.trim();
+        if (text.startsWith('"') && text.endsWith('"')) { // Adjusted quotes for safety
+          text = text.slice(1, -1);
+        }
+        const newId = nextId.current;
+        nextId.current += 1;
+        const newMessage: MessageItem = {
+          id: newId,
+          text: text,
+          modelName: defaultModelName, // Default model
+          avator: defaultAvator, // Default avatar
+        };
+
+        // Append the new message using callback form
+        setMessages(prevMessages => [...prevMessages, newMessage]);
+        setFocusedMessageId(newId); // Focus the newly added message
+
+        // Wait for 0.2 seconds before adding the next one
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      setIsSplitLoading(false); // Stop loading
+    } else {
+      console.warn("No content found to split.");
+      const newId = nextId.current;
+      nextId.current += 1;
+      setMessages([{
+         id: newId,
+         text: "",
+         modelName: defaultModelName,
+         avator: defaultAvator
+      }]);
+      setFocusedMessageId(newId);
+      setIsSplitLoading(false); // Ensure loading is stopped
+    }
+  };
+
+  // Function to handle synthesis
+  const handleSynthesize = async () => {
+    // 1. Check for API Key (Assuming this check is still needed, otherwise remove)
+    const apiKey = localStorage.getItem('userKey');
+    if (!apiKey) {
+      toast.error('请先设置 API KEY');
+      handleAvatarClick({ stopPropagation: () => {} } as React.MouseEvent); // Open modal
+      return;
+    }
+
+    // 2. Check if there's text to synthesize
+    const totalLength = messages.reduce((count, msg) => count + msg.text.length, 0);
+    if (totalLength === 0) {
+      toast.error('请输入需要合成的文本');
+      return;
+    }
+
+    // 3. Check character limit
+    if (totalLength > 5000) {
+      toast.error('单次合成字数不能超过 5000 字');
+      return;
+    }
+
+    // 4. Check if a sub-model is selected
+    if (!selectedSubModelId) {
+      toast.error('请先选择一个发音人');
+      return;
+    }
+
+    // 5. Start synthesis process
+    setIsSynthesizing(true);
+    setSynthesizedAudioUrl(null); // Clear previous result
+
+    // Prepare the request body
+    const requestBody = {
+      chats: messages.map(msg => {
+        // Find the ID corresponding to the message's modelName
+        let personId = selectedSubModelId; // Use the globally selected as a fallback
+        for (const config of modelConfigs) {
+          const subModel = config.subModels.find(sm => sm.name === msg.modelName);
+          if (subModel) {
+            personId = subModel.id; // Found the specific ID for this message
+            break;
+          }
+        }
+
+        // Log a warning if the specific model wasn't found and we're using the fallback
+        // This might happen if modelConfigs changes or there's an inconsistency.
+        if (personId === selectedSubModelId && msg.modelName !== modelConfigs.flatMap(c => c.subModels).find(sm => sm.id === selectedSubModelId)?.name) {
+            console.warn(`Could not find model ID for name "${msg.modelName}" in message ID ${msg.id}. Using fallback ID: ${selectedSubModelId}`);
+        }
+
+        return {
+          text: msg.text,
+          person: personId, // Use the found (or fallback) ID
+          speed: String(speechRate),
+          pitch: String(pitch),
+          volume: String(volume)
+        };
+      }),
+      audio_sample: 24000,
+      // user_id: 'some_user_id' // Add user_id if needed
+    };
+
+    try {
+      // Use environment variable for Base API URL with fallback
+      const baseUrl = process.env.API_BASE_URL;
+      const apiUrl = `${baseUrl}/synthesize`; // Construct the full URL
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        // Handle HTTP errors
+        // Try to parse potential JSON error response first
+        let errorMsg = response.statusText;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.message || errorMsg;
+        } catch (jsonError) {
+            // If response is not JSON, use the status text
+        }
+        console.error('Synthesis API Error:', response.status, errorMsg);
+        toast.error(`合成失败: ${response.status} ${errorMsg}`);
+        setIsSynthesizing(false);
+        return;
+      }
+
+      // Check content type to ensure it's audio
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.startsWith('audio/')) {
+          console.error('Synthesis API did not return audio. Content-Type:', contentType);
+          toast.error('合成响应无效，未收到预期的音频文件');
+          setIsSynthesizing(false);
+          return;
+      }
+
+      // Get the response body as a Blob
+      const audioBlob = await response.blob();
+
+      // Create an object URL from the Blob
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      setSynthesizedAudioUrl(audioUrl);
+      toast.success('合成成功！');
+
+    } catch (error) {
+      console.error('Error during synthesis request:', error);
+      toast.error('合成请求失败，请检查网络或联系管理员');
+    } finally {
+      setIsSynthesizing(false);
+    }
+  };
+
   return (
     <div className="grid grid-rows-[auto_auto_auto_1fr_auto] justify-items-center min-h-screen p-8 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <Toaster position="top-center" reverseOrder={false} />
       <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-10">
         <div className="w-full px-6 sm:px-8 py-2 flex justify-between items-center">
-          <h1 className="text-lg font-semibold text-gray-900">I Speaker</h1>
+          <div className="flex items-center gap-2">
+            <Image 
+              src="/logo.png" 
+              alt="I Speaker Logo" 
+              width={40} 
+              height={40} 
+              className="transform scale-130"
+            />
+            <h1 className="text-lg font-semibold text-gray-900">I Speaker</h1>
+          </div>
           <div className="flex items-center gap-4">
             <div className="relative">
               <div
@@ -463,7 +506,6 @@ export default function HomePageClient() {
                     message={message}
                     onDelete={deleteMessage}
                     onUpdate={updateMessage}
-                    onResize={resizeMessage}
                     onMessageFocus={handleMessageFocus}
                   />
                 ))}
@@ -471,130 +513,63 @@ export default function HomePageClient() {
             </DndContext>
           )}
 
-          <div className="flex gap-4 w-full mt-4">
-            <div className="w-10 flex-shrink-0"></div>
-            <div className="flex-grow flex flex-col gap-2">
-              <div className="flex items-start gap-2">
-                <div className="flex-grow flex justify-center">
-                  <button
-                    onClick={addNewMessage}
-                    className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 flex items-center justify-center"
-                    aria-label="Add new message"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="w-4 flex-shrink-0"></div>
-              </div>
+          {/* Loading indicator */}
+          {isSplitLoading && (
+            <div className="flex justify-center items-center p-4 mt-4">
+               {/* Simple text loading indicator */}
+               <p className="text-sm text-gray-500 animate-pulse">正在添加...</p>
+               {/* You could replace the above with a spinner component if preferred */}
             </div>
-          </div>
+          )}
+
+          {/* Add new message button (hide while loading) */}
+          {!isSplitLoading && (
+             <div className="flex gap-4 w-full mt-4">
+               <div className="w-10 flex-shrink-0"></div>
+               <div className="flex-grow flex flex-col gap-2">
+                 <div className="flex items-start gap-2">
+                   <div className="flex-grow flex justify-center">
+                     <button
+                       onClick={addNewMessage}
+                       className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 flex items-center justify-center"
+                       aria-label="Add new message"
+                     >
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                       </svg>
+                     </button>
+                   </div>
+                   <div className="w-4 flex-shrink-0"></div>
+                 </div>
+               </div>
+             </div>
+          )}
 
         </div>
-        <div className="sticky top-20 flex flex-col gap-4 w-full sm:w-2/5 bg-white p-4 rounded-lg border border-gray-300 max-h-[calc(100vh-5rem)]">
-          <div className="flex border-b border-gray-200 overflow-x-auto">
-            {modelConfigs.map((model) => (
-              <button
-                key={model.id}
-                onClick={() => setActiveTab(model.id)}
-                className={`py-2 px-4 text-sm font-medium whitespace-nowrap transition-colors duration-200 ease-in-out focus:outline-none ${
-                  activeTab === model.id
-                    ? 'border-b-2 border-gray-900 text-gray-900'
-                    : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'
-                }`}
-              >
-                {model.name}
-              </button>
-            ))}
-          </div>
 
-          <div className="overflow-y-auto h-60">
-            {activeConfig && activeConfig.subModels && renderModelGrid(
-              activeConfig.subModels,
-              selectedSubModelId,
-              handleSubModelSelect,
-              playSampleAudio,
-              pauseSampleAudio,
-              playingSubModelId
-            )}
-          </div>
+        <ControlPanel
+          modelConfigs={modelConfigs}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          activeConfig={activeConfig}
+          selectedSubModelId={selectedSubModelId}
+          handleSubModelSelect={handleSubModelSelect}
+          playSampleAudio={playSampleAudio}
+          pauseSampleAudio={pauseSampleAudio}
+          playingSubModelId={playingSubModelId}
+          speechRate={speechRate}
+          setSpeechRate={setSpeechRate}
+          pitch={pitch}
+          setPitch={setPitch}
+          volume={volume}
+          setVolume={setVolume}
+          messages={messages}
+          handleOpenSplitterModal={handleOpenSplitterModal}
+          handleSynthesize={handleSynthesize}
+          isSynthesizing={isSynthesizing}
+          synthesizedAudioUrl={synthesizedAudioUrl}
+        />
 
-          <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="speechRate" className="flex-shrink-0 text-sm font-medium text-gray-700">
-                语速
-              </label>
-              <input
-                type="range"
-                id="speechRate"
-                name="speechRate"
-                min="0"
-                max="15"
-                step="1"
-                value={speechRate}
-                onChange={(e) => setSpeechRate(parseInt(e.target.value, 10))}
-                className="flex-grow w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-gray-700 mx-2"
-              />
-              <span className="flex-shrink-0 text-sm text-gray-600 w-10 text-right">
-                {speechRate}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="pitch" className="flex-shrink-0 text-sm font-medium text-gray-700">
-                音调
-              </label>
-              <input
-                type="range"
-                id="pitch"
-                name="pitch"
-                min="0"
-                max="15"
-                step="1"
-                value={pitch}
-                onChange={(e) => setPitch(parseInt(e.target.value, 10))}
-                className="flex-grow w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-gray-700 mx-2"
-              />
-              <span className="flex-shrink-0 text-sm text-gray-600 w-10 text-right">
-                {pitch}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="volume" className="flex-shrink-0 text-sm font-medium text-gray-700">
-                音量
-              </label>
-              <input
-                type="range"
-                id="volume"
-                name="volume"
-                min="0"
-                max="15"
-                step="1"
-                value={volume}
-                onChange={(e) => setVolume(parseInt(e.target.value, 10))}
-                className="flex-grow w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-gray-700 mx-2"
-              />
-              <span className="flex-shrink-0 text-sm text-gray-600 w-10 text-right">
-                {volume}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex justify-between gap-2 mt-auto pt-4 border-t border-gray-200">
-            <button
-              onClick={handleOpenSplitterModal}
-              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200"
-            >
-              AI多角色自动拆分
-            </button>
-            <button className="flex-1 px-4 py-2 text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 rounded-md transition-colors duration-200">
-              合成
-            </button>
-          </div>
-
-        </div>
       </main>
 
       <div className="row-start-4 w-full max-w-screen-2xl mx-auto text-left space-y-6 px-8 mt-16">
@@ -623,83 +598,7 @@ export default function HomePageClient() {
           联系微信：text_to_speech
       </footer>
 
-      {showSplitterModal && (
-        <SplitterModal isOpen={showSplitterModal} onClose={handleCloseSplitterModal} />
-      )}
-    </div>
-  );
-}
-
-function renderModelGrid(
-  subModels: SubModel[],
-  selectedId: string | null,
-  onSelect: (id: string, name: string) => void,
-  onPlayAudio: (src: string, id: string) => void,
-  onPauseAudio: () => void,
-  playingId: string | null
-) {
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-
-  return (
-    <div className="grid grid-cols-3 gap-3">
-      {subModels.map((subModel) => {
-        const isPlaying = playingId === subModel.id;
-        const isHovered = hoveredId === subModel.id;
-
-        return (
-          <div
-            key={subModel.id}
-            onClick={() => onSelect(subModel.id, subModel.name)}
-            className={`relative py-2 px-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 cursor-pointer ${
-              selectedId === subModel.id
-                ? 'bg-gray-100'
-                : 'bg-white'
-            }`}
-            onMouseEnter={() => setHoveredId(subModel.id)}
-            onMouseLeave={() => setHoveredId(null)}
-          >
-            <div
-              className="relative flex-shrink-0 w-8 h-8 rounded-full overflow-hidden"
-            >
-              <Image
-                src={subModel.avator || '/models_avators/women1.svg'}
-                alt="Sub-model avatar"
-                width={32}
-                height={32}
-                className="w-full h-full object-cover"
-                priority={false}
-              />
-              {subModel.audioSrc && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (isPlaying) {
-                      onPauseAudio();
-                    } else {
-                      if (subModel.audioSrc) {
-                        onPlayAudio(subModel.audioSrc, subModel.id);
-                      }
-                    }
-                  }}
-                  className={`absolute inset-0 flex items-center justify-center bg-black rounded-full text-white focus:outline-none transition-opacity duration-200 ease-in-out ${
-                    (isHovered || isPlaying) ? 'opacity-75' : 'opacity-0 pointer-events-none'
-                  }`}
-                  aria-label={isPlaying ? "Pause sample audio" : "Play sample audio"}
-                >
-                  {isPlaying ? (
-                    <PauseIcon className="w-5 h-5" />
-                  ) : (
-                    <PlayIcon className="w-5 h-5" />
-                  )}
-                </button>
-              )}
-            </div>
-            <p className="text-sm font-medium text-gray-900">
-              {subModel.name}
-            </p>
-          </div>
-        );
-      })}
+      <SplitterModal isOpen={showSplitterModal} onClose={handleCloseSplitterModal} onSplitConfirm={handleSplitConfirm} />
     </div>
   );
 }
@@ -708,75 +607,4 @@ function arrayMove<T>(array: T[], from: number, to: number) {
   const newArray = array.slice();
   newArray.splice(to < 0 ? newArray.length + to : to, 0, newArray.splice(from, 1)[0]);
   return newArray;
-}
-
-function SplitterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const modalContentRef = useRef<HTMLDivElement>(null);
-  const [modalText, setModalText] = useState("");
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalContentRef.current && !modalContentRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const handleSplit = () => {
-    console.log("Splitting text:", modalText);
-    onClose();
-  };
-
-  return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade-in"
-    >
-      <div
-        ref={modalContentRef}
-        className="bg-white rounded-lg w-full max-w-lg flex flex-col overflow-hidden"
-        style={{ maxHeight: '80vh', boxShadow: '0 0 25px rgba(0, 0, 0, 0.15)' }}
-      >
-        <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">AI多角色自动拆分</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors duration-150"
-            aria-label="Close modal"
-          >
-            <XMarkIcon className="h-6 w-6" />
-          </button>
-        </div>
-
-        <div className="p-4 flex-grow overflow-y-auto">
-          <textarea
-            value={modalText}
-            onChange={(e) => setModalText(e.target.value)}
-            className="w-full h-64 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 ease-in-out text-sm bg-white text-gray-900 resize-none"
-            placeholder="在此处粘贴或输入需要拆分的文本..."
-          />
-        </div>
-
-        <div className="flex justify-end p-4 border-t border-gray-200">
-          <button
-            onClick={handleSplit}
-            className="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-md hover:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-          >
-            AI拆分
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
