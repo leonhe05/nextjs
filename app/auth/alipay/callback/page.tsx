@@ -34,7 +34,8 @@ function AlipayCallbackContent() {
       // --- Call your backend API --- 
       const login = async () => {
         try {
-          const response = await fetch('/login', { 
+          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL; // Needs NEXT_PUBLIC_ prefix for client-side
+          const response = await fetch(`${baseUrl}/login`, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code: authCode })

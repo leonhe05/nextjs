@@ -372,7 +372,7 @@ export default function HomePageClient() {
 
     try {
       // Use environment variable for Base API URL with fallback
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'; // Needs NEXT_PUBLIC_ prefix for client-side
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL; // Needs NEXT_PUBLIC_ prefix for client-side
       console.log('NEXT_PUBLIC_API_BASE_URL from env:', process.env.NEXT_PUBLIC_API_BASE_URL);
       console.log('Using baseUrl:', baseUrl);
       const apiUrl = `${baseUrl}/synthesize`; // Construct the full URL
