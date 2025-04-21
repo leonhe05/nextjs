@@ -48,17 +48,32 @@ export default function HomePageClient() {
   const [synthesizedAudioUrl, setSynthesizedAudioUrl] = useState<string | null>(null); // State for the synthesized audio URL
   const [isSynthesizing, setIsSynthesizing] = useState(false); // State for synthesis loading
 
+  // User Authentication State
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [remainWords, setRemainWords] = useState<string | null>(null); // Store as string from localStorage
+  const [token, setToken] = useState<string | null>(null);
+
   // Find the config for the currently active tab
   const activeConfig = modelConfigs.find(config => config.id === activeTab);
 
-  // Effect for localStorage key and setting isClient flag
+  // Effect for setting isClient flag and loading user data from localStorage
   useEffect(() => {
-    const savedKey = localStorage.getItem('userKey');
-    if (savedKey) {
-      setInputValue(savedKey);
-      setIsKeySaved(true);
-    }
     setIsClient(true); // Set client flag only after mount
+    // Attempt to load user data from localStorage
+    const loggedInStatus = localStorage.getItem('isLoggedIn');
+    const storedUserId = localStorage.getItem('userId');
+    const storedToken = localStorage.getItem('token');
+    const storedRemainWords = localStorage.getItem('remainWords');
+
+    if (loggedInStatus === 'true' && storedUserId && storedToken && storedRemainWords) {
+      setIsLoggedIn(true);
+      setUserId(storedUserId);
+      setToken(storedToken);
+      setRemainWords(storedRemainWords);
+      console.log('User data loaded from localStorage.');
+    }
+
     // Ensure light theme class is set on mount (though it's now the default)
     document.documentElement.classList.remove('dark');
   }, []);
@@ -73,7 +88,7 @@ export default function HomePageClient() {
     }
   }, [activeTab]); // Dependency array only includes activeTab
 
-  // Effect for modal outside click (runs only on client)
+  // Effect for modal outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const avatarElement = document.querySelector('.avatar-container');
@@ -84,10 +99,6 @@ export default function HomePageClient() {
         !avatarElement.contains(event.target as Node)
       ) {
         setShowModal(false);
-        const savedKey = localStorage.getItem('userKey');
-        if (savedKey) {
-          setInputValue(savedKey);
-        }
       }
     };
 
@@ -156,16 +167,7 @@ export default function HomePageClient() {
 
   const handleAvatarClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setTimeout(() => {
-      setShowModal(prev => !prev);
-      if (!showModal) {
-        const savedKey = localStorage.getItem('userKey');
-        if (savedKey) {
-          setInputValue(savedKey);
-          setIsKeySaved(true);
-        }
-      }
-    }, 0);
+    setShowModal(prev => !prev);
   };
 
   const handleSubModelSelect = (id: string, name: string) => {
@@ -238,84 +240,93 @@ export default function HomePageClient() {
     setShowSplitterModal(false);
   };
 
-  // Function to handle the text splitting (now async)
+  // Function to handle the text splitting (restored to original logic)
   const handleSplitConfirm = async (textToSplit: string) => {
-    handleCloseSplitterModal(); // Close modal immediately
-    const segments = textToSplit.split(/(“[^”]*”)/).filter(segment => segment && segment.trim() !== '');
+    setIsSplitLoading(true); // Start loading
+    // Split the text using punctuation marks
+    const splitTexts = textToSplit.split(/[。？！]/g).filter(sentence => sentence.trim());
 
-    if (segments && segments.length > 0) {
-      setIsSplitLoading(true); // Start loading
-      setMessages([]); // Clear existing messages
-
-      await new Promise(resolve => setTimeout(resolve, 100)); // Small initial delay before first item
-
-      for (const segment of segments) {
-        let text = segment.trim();
-        if (text.startsWith('"') && text.endsWith('"')) { // Adjusted quotes for safety
-          text = text.slice(1, -1);
-        }
-        const newId = nextId.current;
-        nextId.current += 1;
-        const newMessage: MessageItem = {
-          id: newId,
-          text: text,
-          modelName: defaultModelName, // Default model
-          avator: defaultAvator, // Default avatar
-        };
-
-        // Append the new message using callback form
-        setMessages(prevMessages => [...prevMessages, newMessage]);
-        setFocusedMessageId(newId); // Focus the newly added message
-
-        // Wait for 0.2 seconds before adding the next one
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      setIsSplitLoading(false); // Stop loading
-    } else {
-      console.warn("No content found to split.");
-      const newId = nextId.current;
-      nextId.current += 1;
-      setMessages([{
-         id: newId,
-         text: "",
-         modelName: defaultModelName,
-         avator: defaultAvator
-      }]);
-      setFocusedMessageId(newId);
-      setIsSplitLoading(false); // Ensure loading is stopped
+    // Find the message that needs to be split
+    const messageToSplitIndex = messages.findIndex(msg => msg.id === focusedMessageId);
+    if (messageToSplitIndex === -1) {
+      console.error("Focused message for splitting not found.");
+      setIsSplitLoading(false);
+      return;
     }
+    const messageToSplit = messages[messageToSplitIndex];
+
+    // Prepare new messages based on split text
+    const newMessages: MessageItem[] = [];
+    let currentId = nextId.current;
+    splitTexts.forEach(sentence => {
+      newMessages.push({
+        id: currentId++,
+        text: sentence.trim(),
+        modelName: messageToSplit.modelName, // Keep the original model and avatar
+        avator: messageToSplit.avator
+      });
+    });
+    nextId.current = currentId; // Update the next available ID
+
+    // Update the messages state by replacing the original message with the new ones
+    setMessages(prevMessages => [
+      ...prevMessages.slice(0, messageToSplitIndex),
+      ...newMessages,
+      ...prevMessages.slice(messageToSplitIndex + 1)
+    ]);
+
+    // Close modal and stop loading
+    handleCloseSplitterModal();
+
+    // Focus the first newly created message, or handle cases where no new messages were created
+    if (newMessages.length > 0) {
+      setFocusedMessageId(newMessages[0].id);
+    } else {
+      // If splitting resulted in no new messages (e.g., only punctuation),
+      // try to focus the message that was before the split position, or the first message.
+      const focusTargetIndex = Math.max(0, messageToSplitIndex - 1);
+      const updatedMessages = messages.slice(0, messageToSplitIndex).concat(messages.slice(messageToSplitIndex + 1)); // Simulate state after removal but before new messages
+      const newFocusId = updatedMessages[focusTargetIndex]?.id || (updatedMessages.length > 0 ? updatedMessages[0].id : null);
+
+      if (newFocusId) {
+          setFocusedMessageId(newFocusId);
+      } else {
+           // If the list becomes empty, add a default message
+           setMessages([{
+             id: 1,
+             text: "",
+             modelName: defaultModelName,
+             avator: defaultAvator
+           }]);
+           setFocusedMessageId(1);
+           nextId.current = 2; // Reset ID counter
+      }
+    }
+     setIsSplitLoading(false); // Ensure loading is stopped
   };
 
   // Function to handle synthesis
   const handleSynthesize = async () => {
-    // 1. Check for API Key (Assuming this check is still needed, otherwise remove)
-    const apiKey = localStorage.getItem('userKey');
-    if (!apiKey) {
-      toast.error('请先设置 API KEY');
-      handleAvatarClick({ stopPropagation: () => {} } as React.MouseEvent); // Open modal
-      return;
-    }
-
-    // 2. Check if there's text to synthesize
+    // 1. Check if there's text to synthesize
     const totalLength = messages.reduce((count, msg) => count + msg.text.length, 0);
     if (totalLength === 0) {
       toast.error('请输入需要合成的文本');
       return;
     }
 
-    // 3. Check character limit
+    // 2. Check character limit
     if (totalLength > 5000) {
       toast.error('单次合成字数不能超过 5000 字');
       return;
     }
 
-    // 4. Check if a sub-model is selected
+    // 3. Check if a sub-model is selected
     if (!selectedSubModelId) {
       toast.error('请先选择一个发音人');
       return;
     }
 
-    // 5. Start synthesis process
+    // 4. Start synthesis process
     setIsSynthesizing(true);
     setSynthesizedAudioUrl(null); // Clear previous result
 
@@ -350,15 +361,28 @@ export default function HomePageClient() {
       // user_id: 'some_user_id' // Add user_id if needed
     };
 
+    // Check if user is logged in (token exists)
+    if (!isLoggedIn || !token) {
+      toast.error('右上角扫码登录后再进行语音合成');
+      // Optionally trigger login modal
+      setShowModal(true);
+      setIsSynthesizing(false);
+      return;
+    }
+
     try {
       // Use environment variable for Base API URL with fallback
       const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'; // Needs NEXT_PUBLIC_ prefix for client-side
+      console.log('NEXT_PUBLIC_API_BASE_URL from env:', process.env.NEXT_PUBLIC_API_BASE_URL);
+      console.log('Using baseUrl:', baseUrl);
       const apiUrl = `${baseUrl}/synthesize`; // Construct the full URL
+      console.log('Fetching apiUrl:', apiUrl);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token // Pass the token directly
         },
         body: JSON.stringify(requestBody),
       });
@@ -405,6 +429,25 @@ export default function HomePageClient() {
     }
   };
 
+  // Handle Logout
+  const handleLogout = () => {
+    // Clear local storage
+    localStorage.removeItem('userId');
+    localStorage.removeItem('token');
+    localStorage.removeItem('remainWords');
+    localStorage.removeItem('isLoggedIn');
+
+    // Reset state
+    setIsLoggedIn(false);
+    setUserId(null);
+    setToken(null);
+    setRemainWords(null);
+
+    // Close modal
+    setShowModal(false);
+    toast.success('已登出');
+  };
+
   return (
     <div className="grid grid-rows-[auto_auto_auto_1fr_auto] justify-items-center min-h-screen p-8 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <Toaster position="top-center" reverseOrder={false} />
@@ -421,50 +464,56 @@ export default function HomePageClient() {
             <h1 className="text-lg font-semibold text-gray-900">I Speaker</h1>
           </div>
           <div className="flex items-center gap-4">
+            {/* Avatar and Login/User Info Modal Trigger */}
             <div className="relative">
               <div
                 className="avatar-container w-8 h-8 rounded-full bg-gradient-to-r from-purple-700 via-pink-700 to-red-700 flex items-center justify-center overflow-hidden cursor-pointer"
-                onClick={handleAvatarClick}
+                onClick={handleAvatarClick} // Attach the handler here
               >
+                {/* Optional: Display user initial if logged in */}
+                {isLoggedIn && userId && <span className="text-white text-xs font-bold">{userId.charAt(0).toUpperCase()}</span>}
               </div>
               {showModal && (
                 <div
-                  ref={modalRef}
-                  className="absolute right-0 top-12 bg-white rounded-lg p-4 w-64 shadow-lg border border-gray-200 animate-fade-in"
+                  ref={modalRef} // Attach ref here
+                  className="absolute right-0 top-12 bg-white rounded-lg p-6 w-64 shadow-lg border border-gray-200 animate-fade-in"
+                  onClick={(e) => e.stopPropagation()} // Prevent closing modal when clicking inside
                 >
-                  <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => {
-                      setInputValue(e.target.value);
-                      setIsKeySaved(false);
-                    }}
-                    className="w-full p-2 border border-gray-300 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 ease-in-out text-sm bg-white text-gray-900"
-                    placeholder="请输入KEY..."
-                  />
-                  <div className="flex justify-end gap-2">
+                  {isLoggedIn ? (
+                    // Logged In View
+                    <div className="space-y-3 text-sm">
+                      <p><span className="font-semibold">ID:</span> {userId}</p>
+                      <p><span className="font-semibold">剩余字数:</span> {remainWords}</p>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm font-medium"
+                      >
+                        登出
+                      </button>
+                    </div>
+                  ) : (
+                    // Logged Out View
                     <button
+                      // Alipay login redirection logic
                       onClick={() => {
-                        setShowModal(false);
-                        const savedKey = localStorage.getItem('userKey');
-                        if (savedKey) {
-                          setInputValue(savedKey);
+                        const appId = process.env.NEXT_PUBLIC_ALIPAY_APP_ID;
+                        const redirectUri = process.env.NEXT_PUBLIC_ALIPAY_REDIRECT_URI;
+                        if (!redirectUri) {
+                          toast.error('Alipay Redirect URI is not configured.');
+                          return;
                         }
+                        const encodedRedirectUri = encodeURIComponent(redirectUri);
+                        const scope = 'auth_base'; // Or 'auth_base' if you only need user ID
+                        const state = Math.random().toString(36).substring(2); // Basic random state
+                        sessionStorage.setItem('alipay_oauth_state', state); // Store state for verification
+                        const authUrl = `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=${appId}&scope=${scope}&redirect_uri=${encodedRedirectUri}&state=${state}`;
+                        window.location.href = authUrl; // Redirect user to Alipay
                       }}
-                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-md transition-colors text-sm"
+                      className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors text-sm font-medium"
                     >
-                      取消
+                      支付宝快捷登录
                     </button>
-                    <button
-                      onClick={() => {
-                        localStorage.setItem('userKey', inputValue);
-                        setIsKeySaved(true);
-                      }}
-                      className="px-3 py-1 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors text-sm"
-                    >
-                      {isKeySaved ? "已设置" : "保存"}
-                    </button>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
