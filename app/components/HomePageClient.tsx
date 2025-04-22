@@ -430,7 +430,7 @@ export default function HomePageClient() {
   return (
     <div className="grid grid-rows-[auto_auto_auto_1fr_auto] justify-items-center min-h-screen p-8 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <Toaster position="top-center" reverseOrder={false} />
-      <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm shadow-xs z-10">
+      <header className="fixed top-0 left-0 right-0 bg-white/30 backdrop-blur-sm shadow-xs z-10">
         <div className="w-full px-6 sm:px-8 py-2 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Image 
