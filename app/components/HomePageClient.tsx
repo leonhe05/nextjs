@@ -51,7 +51,7 @@ export default function HomePageClient() {
   // User Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [remainWords, setRemainWords] = useState<string | null>(null); // Store as string from localStorage
+  const [remainWords, setRemainWords] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   // Find the config for the currently active tab
@@ -358,71 +358,50 @@ export default function HomePageClient() {
         };
       }),
       audio_sample: 24000,
-      // user_id: 'some_user_id' // Add user_id if needed
     };
 
-    // Check if user is logged in (token exists)
     if (!isLoggedIn || !token) {
       toast.error('右上角扫码登录后再进行语音合成');
-      // Optionally trigger login modal
       setShowModal(true);
       setIsSynthesizing(false);
       return;
     }
 
     try {
-      // Use environment variable for Base API URL with fallback
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL; // Needs NEXT_PUBLIC_ prefix for client-side
-      console.log('NEXT_PUBLIC_API_BASE_URL from env:', process.env.NEXT_PUBLIC_API_BASE_URL);
-      console.log('Using baseUrl:', baseUrl);
-      const apiUrl = `${baseUrl}/synthesize`; // Construct the full URL
-      console.log('Fetching apiUrl:', apiUrl);
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      const apiUrl = `${baseUrl}/synthesize`; 
 
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token // Pass the token directly
+          'Authorization': token
         },
         body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) {
-        // Handle HTTP errors
-        // Try to parse potential JSON error response first
-        let errorMsg = response.statusText;
-        try {
-            const errorData = await response.json();
-            errorMsg = errorData.message || errorMsg;
-        } catch (jsonError) {
-            // If response is not JSON, use the status text
-        }
-        console.error('Synthesis API Error:', response.status, errorMsg);
-        toast.error(`合成失败: ${response.status} ${errorMsg}`);
+      // 检查返回类型
+      const contentType = response.headers.get('content-type');
+      if (!contentType) {
+        toast.error('合成响应无效，未收到预期的数据');
         setIsSynthesizing(false);
         return;
       }
 
-      // Check content type to ensure it's audio
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.startsWith('audio/')) {
-          console.error('Synthesis API did not return audio. Content-Type:', contentType);
-          toast.error('合成响应无效，未收到预期的音频文件');
-          setIsSynthesizing(false);
-          return;
+      if (contentType.startsWith('audio/')) {
+        // 处理音频
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setSynthesizedAudioUrl(audioUrl);
+        toast.success('合成成功！');
+      } else if (contentType.startsWith('application/json')) {
+        // 处理 JSON 响应（无论状态码是否为 200）
+        const result = await response.json();
+        toast.error(`合成失败: ${result.ret_msg || '未知错误'}`);
+      } else {
+        toast.error('合成响应无效，未收到预期的数据');
       }
-
-      // Get the response body as a Blob
-      const audioBlob = await response.blob();
-
-      // Create an object URL from the Blob
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      setSynthesizedAudioUrl(audioUrl);
-      toast.success('合成成功！');
-
     } catch (error) {
-      console.error('Error during synthesis request:', error);
       toast.error('合成请求失败，请检查网络或联系管理员');
     } finally {
       setIsSynthesizing(false);
@@ -451,7 +430,7 @@ export default function HomePageClient() {
   return (
     <div className="grid grid-rows-[auto_auto_auto_1fr_auto] justify-items-center min-h-screen p-8 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <Toaster position="top-center" reverseOrder={false} />
-      <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-10">
+      <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm shadow-xs z-10">
         <div className="w-full px-6 sm:px-8 py-2 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Image 
@@ -464,13 +443,11 @@ export default function HomePageClient() {
             <h1 className="text-lg font-semibold text-gray-900">I Speaker</h1>
           </div>
           <div className="flex items-center gap-4">
-            {/* Avatar and Login/User Info Modal Trigger */}
             <div className="relative">
               <div
                 className="avatar-container w-8 h-8 rounded-full bg-gradient-to-r from-purple-700 via-pink-700 to-red-700 flex items-center justify-center overflow-hidden cursor-pointer"
                 onClick={handleAvatarClick} // Attach the handler here
               >
-                {/* Optional: Display user initial if logged in */}
                 {isLoggedIn && userId && <span className="text-white text-xs font-bold">{userId.charAt(0).toUpperCase()}</span>}
               </div>
               {showModal && (
@@ -486,15 +463,13 @@ export default function HomePageClient() {
                       <p><span className="font-semibold">剩余字数:</span> {remainWords}</p>
                       <button
                         onClick={handleLogout}
-                        className="w-full mt-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm font-medium"
+                        className="w-full mt-2 px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors text-sm font-medium"
                       >
                         登出
                       </button>
                     </div>
                   ) : (
-                    // Logged Out View
                     <button
-                      // Alipay login redirection logic
                       onClick={() => {
                         const appId = process.env.NEXT_PUBLIC_ALIPAY_APP_ID;
                         const redirectUri = process.env.NEXT_PUBLIC_ALIPAY_REDIRECT_URI;
@@ -503,11 +478,11 @@ export default function HomePageClient() {
                           return;
                         }
                         const encodedRedirectUri = encodeURIComponent(redirectUri);
-                        const scope = 'auth_base'; // Or 'auth_base' if you only need user ID
-                        const state = Math.random().toString(36).substring(2); // Basic random state
-                        sessionStorage.setItem('alipay_oauth_state', state); // Store state for verification
+                        const scope = 'auth_base';
+                        const state = Math.random().toString(36).substring(2);
+                        sessionStorage.setItem('alipay_oauth_state', state);
                         const authUrl = `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=${appId}&scope=${scope}&redirect_uri=${encodedRedirectUri}&state=${state}`;
-                        window.location.href = authUrl; // Redirect user to Alipay
+                        window.location.href = authUrl;
                       }}
                       className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors text-sm font-medium"
                     >
