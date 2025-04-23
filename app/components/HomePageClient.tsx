@@ -426,7 +426,7 @@ export default function HomePageClient() {
       if (!apiBaseUrl) {
         throw new Error("API基础URL未配置 (NEXT_PUBLIC_API_BASE_URL)");
       }
-      const refreshUrl = `${apiBaseUrl}refresh`; // 假设刷新接口是 /refresh
+      const refreshUrl = `${apiBaseUrl}/refresh`; // 假设刷新接口是 /refresh
 
       const response = await fetch(refreshUrl, {
         method: 'POST', // 或者根据您的 API 设计使用 GET
