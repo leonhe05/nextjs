@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -458,12 +458,27 @@ export default function HomePageClient() {
                 >
                   {isLoggedIn ? (
                     // Logged In View
-                    <div className="space-y-3 text-sm">
-                      <p><span className="font-semibold">ID:</span> {userId}</p>
-                      <p><span className="font-semibold">剩余字数:</span> {remainWords}</p>
+                    <div className="text-sm">
+                      {/* User Info Grid */}
+                      <div className="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1 mb-2">
+                        {/* Row 1: User ID */}
+                        <span className="text-gray-500 justify-self-start">用户ID:</span>
+                        <span className="text-gray-800 dark:text-gray-200 justify-self-start">{userId}</span>
+                        
+                        {/* Row 2: Remaining Words & Purchase Link */}
+                        <span className="text-gray-500 justify-self-start">剩余字数:</span>
+                        <div className="flex justify-between items-center"> 
+                            <span className="text-gray-800 dark:text-gray-200">{remainWords}</span>
+                            <a href="/purchase" className="text-blue-500 hover:underline text-xs ml-2">
+                              购买
+                            </a>
+                        </div>
+                      </div>
+
+                      {/* Logout Button */}
                       <button
                         onClick={handleLogout}
-                        className="w-full mt-2 px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors text-sm font-medium"
+                        className="w-full mt-4 px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors text-sm font-medium"
                       >
                         登出
                       </button>
@@ -473,6 +488,10 @@ export default function HomePageClient() {
                       onClick={() => {
                         const appId = process.env.NEXT_PUBLIC_ALIPAY_APP_ID;
                         const redirectUri = process.env.NEXT_PUBLIC_ALIPAY_REDIRECT_URI;
+                        if (!appId) {
+                           toast.error('Alipay App ID is not configured.');
+                           return;
+                        }
                         if (!redirectUri) {
                           toast.error('Alipay Redirect URI is not configured.');
                           return;
@@ -605,15 +624,15 @@ export default function HomePageClient() {
           <div className="space-y-4">
               <div>
                   <p className="font-semibold text-gray-800">1. 本网站提供的服务收费吗？</p>
-                  <p className="text-gray-600 mt-1">答：本站提供的AI配音功能收费，但可提供免费试用额度，添加微信：text_to_speech 获取免费试用API KEY，获取后点击页面右上角头像按钮，将API KEY设置进去即可试用。</p>
+                  <p className="text-gray-600 mt-1">答：本站提供的AI配音功能收费，但右上角登录后提供免费试用额度</p>
               </div>
               <div>
                   <p className="font-semibold text-gray-800">2. 本站的配音功能如何收费？</p>
-                  <p className="text-gray-600 mt-1">答：目前算力成本较高，收费标准暂定为 0.2元/千字，需要使用的请添加微信：text_to_speech 购买API KEY。</p>
+                  <p className="text-gray-600 mt-1">答：目前算力成本较高，收费标准可点击右上角 头像-购买 查看</p>
               </div>
               <div>
                   <p className="font-semibold text-gray-800">3. 还有那些使用说明？</p>
-                  <p className="text-gray-600 mt-1">答：点击播音员头像即可试听该播音员音色；本站提供AI自动多角色拆分功能，点击AI多角色自动拆分按钮，在弹窗中输入一段文本，AI可自动分析文本中各个角色的对话，并自动按角色拆分，填入左侧对话框中；可点击左侧对话框下方的"+"号来添加对话，可为每个对话设置不同的播音员，点击对话框右侧的"-"号按钮，可删除该段对话。</p>
+                  <p className="text-gray-600 mt-1">答：点击播音员头像即可试听该播音员音色；本站提供AI自动多角色拆分功能，点击AI多角色自动拆分按钮，在弹窗中输入一段文本，AI可自动分析文本中各个角色的对话，并自动按角色拆分，填入左侧对话框中；可点击左侧对话框下方的 "+" 号来添加对话，可为每个对话设置不同的播音员，点击对话框右侧的 "-" 号按钮，可删除该段对话。</p>
               </div>
           </div>
       </div>
@@ -627,7 +646,7 @@ export default function HomePageClient() {
   );
 }
 
-function arrayMove<T>(array: T[], from: number, to: number) {
+function arrayMove<T>(array: T[], from: number, to: number): T[] {
   const newArray = array.slice();
   newArray.splice(to < 0 ? newArray.length + to : to, 0, newArray.splice(from, 1)[0]);
   return newArray;

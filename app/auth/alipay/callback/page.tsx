@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
+
+// Define the origin for postMessage for better security
+// Ideally, this should come from an environment variable
+const PARENT_WINDOW_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || '*'; // Use '*' as fallback, but specific origin is recommended
 
 function AlipayCallbackContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   useEffect(() => {
     const authCode = searchParams.get('auth_code');
@@ -18,15 +21,15 @@ function AlipayCallbackContent() {
 
     if (error) {
       console.error('Alipay OAuth Error:', error);
-      toast.error(`支付宝授权失败: ${error}`);
-      router.push('/'); // Redirect to home on error
+      // Send error message to parent window instead of redirecting
+      window.parent.postMessage({ type: 'alipayLoginError', message: `支付宝授权失败: ${error}` }, PARENT_WINDOW_ORIGIN);
       return;
     }
 
     if (!state || state !== storedState) {
       console.error('Alipay OAuth State mismatch', { received: state, expected: storedState });
-      toast.error('支付宝授权状态无效，请重试');
-      router.push('/'); // Redirect to home on state mismatch
+      // Send error message to parent window instead of redirecting
+      window.parent.postMessage({ type: 'alipayLoginError', message: '支付宝授权状态无效，请重试' }, PARENT_WINDOW_ORIGIN);
       return;
     }
 
@@ -56,45 +59,34 @@ function AlipayCallbackContent() {
           const data = await response.json();
 
           if (data.user_id && data.token && data.remain_words !== undefined) {
-            // Store user info in localStorage
-            localStorage.setItem('userId', data.user_id);
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('remainWords', String(data.remain_words));
-            localStorage.setItem('isLoggedIn', 'true'); // Flag to indicate login status
-            
-            console.log('Login successful, user data stored.', data);
-            toast.success('登录成功!');
+            // IMPORTANT: Do NOT store in localStorage here. Let the parent window handle it.
+            console.log('Login successful, sending data to parent window.', data);
+            // Send success message with payload to parent window
+            window.parent.postMessage({ type: 'alipayLoginSuccess', payload: data }, PARENT_WINDOW_ORIGIN);
           } else {
              throw new Error('从后端返回的用户数据不完整。');
           }
 
-        } catch (error) {
+        } catch (error: any) { // Explicitly type error
           console.error('Login API Error:', error);
-          toast.error(error instanceof Error ? error.message : '登录过程中发生错误');
-          // Clear any potentially partially stored data on error
-          localStorage.removeItem('userId');
-          localStorage.removeItem('token');
-          localStorage.removeItem('remainWords');
-          localStorage.removeItem('isLoggedIn');
-        } finally {
-           // Always redirect home, whether login succeeded or failed
-           router.push('/');
-        }
+          // Send error message to parent window
+          window.parent.postMessage({ type: 'alipayLoginError', message: error.message || '登录过程中发生未知错误' }, PARENT_WINDOW_ORIGIN);
+        } 
       };
 
       login(); // Execute the async login function
 
     } else {
       console.error('Alipay OAuth: auth_code not found in callback URL');
-      toast.error('未获取到支付宝授权码');
-      router.push('/'); // Redirect to home if code is missing
+      // Send error message to parent window instead of redirecting
+      window.parent.postMessage({ type: 'alipayLoginError', message: '未获取到支付宝授权码' }, PARENT_WINDOW_ORIGIN);
     }
 
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-      处理支付宝回调中...
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Arial, sans-serif', fontSize: '14px', color: '#666' }}>
+      正在处理支付宝登录回调，请稍候...
     </div>
   );
 }
