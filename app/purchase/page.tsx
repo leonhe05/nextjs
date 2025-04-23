@@ -234,7 +234,7 @@ export default function PurchasePage() {
         if (!apiBaseUrl) {
             throw new Error("API基础URL未配置 (NEXT_PUBLIC_API_BASE_URL)");
         }
-        const apiUrl = `${apiBaseUrl}submitOrder`;
+        const apiUrl = `${apiBaseUrl}/submitOrder`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
