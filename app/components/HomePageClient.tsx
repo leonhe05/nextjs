@@ -54,6 +54,9 @@ export default function HomePageClient() {
   const [remainWords, setRemainWords] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
+  // --- 新增：刷新状态 ---
+  const [isRefreshing, setIsRefreshing] = useState(false); // State for refresh loading
+
   // Find the config for the currently active tab
   const activeConfig = modelConfigs.find(config => config.id === activeTab);
 
@@ -408,6 +411,73 @@ export default function HomePageClient() {
     }
   };
 
+  // --- 新增：处理刷新用户信息 ---
+  const handleRefresh = async () => {
+    if (!token) {
+      toast.error("请先登录");
+      return;
+    }
+
+    setIsRefreshing(true); // 开始刷新状态
+    const toastId = toast.loading('正在刷新...');
+
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      if (!apiBaseUrl) {
+        throw new Error("API基础URL未配置 (NEXT_PUBLIC_API_BASE_URL)");
+      }
+      const refreshUrl = `${apiBaseUrl}refresh`; // 假设刷新接口是 /refresh
+
+      const response = await fetch(refreshUrl, {
+        method: 'POST', // 或者根据您的 API 设计使用 GET
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token, // 将 token 放入 Authorization header
+        },
+        // 如果需要，可以在 body 中发送数据
+        // body: JSON.stringify({ /* 可选参数 */ }),
+      });
+
+      if (!response.ok) {
+        let errorMsg = `刷新失败: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.ret_msg || errorData.message || errorMsg;
+        } catch (e) {
+          console.error("无法解析刷新错误响应:", e);
+          const textError = await response.text().catch(() => "无法读取响应文本");
+          errorMsg += `. 响应: ${textError.substring(0, 100)}`;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const data = await response.json();
+
+      if (data.ret_code === "00" && data.token && data.remain_words !== undefined) {
+        // 更新状态
+        setToken(data.token);
+        setRemainWords(String(data.remain_words));
+
+        // 更新 localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('remainWords', String(data.remain_words));
+
+        toast.success('用户信息已刷新');
+      } else {
+        const errorMsg = data.ret_msg || `刷新响应无效，代码: ${data.ret_code || '未知'}`;
+        console.error("刷新响应错误:", data);
+        throw new Error(errorMsg);
+      }
+
+    } catch (error: any) {
+      console.error('刷新 API 错误:', error);
+      toast.error(error.message || '刷新过程中发生未知错误');
+    } finally {
+      setIsRefreshing(false); // 结束刷新状态
+      toast.dismiss(toastId); // 关闭加载提示
+    }
+  };
+
   // Handle Logout
   const handleLogout = () => {
     // Clear local storage
@@ -461,14 +531,23 @@ export default function HomePageClient() {
                     <div className="text-sm">
                       {/* User Info Grid */}
                       <div className="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1 mb-2">
-                        {/* Row 1: User ID */}
-                        <span className="text-gray-500 justify-self-start">用户ID:</span>
-                        <span className="text-gray-800 dark:text-gray-200 justify-self-start">{userId}</span>
+                        {/* Row 1: User ID & Refresh Button */}
+                        <span className="text-gray-500 justify-self-start self-center">用户ID:</span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-800 dark:text-gray-700">{userId}</span>
+                          <button
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className="text-xs text-blue-500 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isRefreshing ? '刷新中...' : '刷新'}
+                          </button>
+                        </div>
                         
                         {/* Row 2: Remaining Words & Purchase Link */}
                         <span className="text-gray-500 justify-self-start">剩余字数:</span>
                         <div className="flex justify-between items-center"> 
-                            <span className="text-gray-800 dark:text-gray-200">{remainWords}</span>
+                            <span className="text-gray-800 dark:text-gray-700">{remainWords}</span>
                             <a href="/purchase" className="text-blue-500 hover:underline text-xs ml-2">
                               购买
                             </a>
