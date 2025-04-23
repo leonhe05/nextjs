@@ -166,7 +166,7 @@ export function ControlPanel({
 
       {/* Character Count Display */}
       <div className="mt-3 text-xs text-gray-500">
-        单次合成限制：5000字 / 已输入：{totalChars} 字
+        单次合成限制：3000字 / 已输入：{totalChars} 字
       </div>
 
       {/* Synthesis Result Section */}

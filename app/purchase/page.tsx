@@ -63,13 +63,25 @@ export default function PurchasePage() {
     { id: "plan1", name: "2千字", price: "0.5元", unitPrice: "0.25元/千字", amount: 0.5 },
     { id: "plan2", name: "1万字", price: "2元", unitPrice: "0.2元/千字", amount: 2 },
     { id: "plan3", name: "10万字", price: "18元", unitPrice: "0.18元/千字", amount: 18 },
-    { id: "plan4", name: "100万字", price: "138元", unitPrice: "0.138元/千字", amount: 138 },
+    { id: "plan4", name: "50万字", price: "80元", unitPrice: "0.16元/千字", amount: 18 },
+    { id: "plan5", name: "100万字", price: "138元", unitPrice: "0.138元/千字", amount: 138 },
   ];
 
   // --- 新增：查询订单状态函数 ---
   const queryOrderStatus = async (orderId: string) => {
     console.log(`Querying status for order_id: ${orderId}`);
     try {
+      // --- 新增：获取 token ---
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error("Token not found in localStorage during queryOrderStatus.");
+        toast.error("用户认证失败，请重新登录");
+        // 可以考虑停止轮询，或者根据业务逻辑处理
+        setCurrentOrderId(null); // 停止轮询
+        return;
+      }
+      // --- 结束新增 ---
+
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
       if (!apiBaseUrl) {
         // 如果正在轮询，避免重复抛出错误干扰用户
@@ -81,9 +93,11 @@ export default function PurchasePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // --- 新增：添加 Authorization 头 ---
+          'Authorization': token,
         },
-        body: JSON.stringify({ 
-          order_id: orderId, 
+        body: JSON.stringify({
+          order_id: orderId,
           user_id: userId // Add user_id here
         }),
       });
@@ -171,7 +185,7 @@ export default function PurchasePage() {
 
     console.log(`[startPolling] Starting polling execution for order_id: ${orderId}`);
     toast.dismiss(); // 清除之前的 "创建订单" loading
-    toast.loading('请扫描二维码完成支付。支付成功后将自动跳转...', { duration: 600000 }); // 持续10分钟或直到被清除
+    toast.loading('请扫描二维码完成支付。支付成功后将自动跳转...', { duration: 300000 }); // 持续10分钟或直到被清除
 
     // 立即执行一次查询（稍微延迟以给后端一点时间处理）
     console.log(`[startPolling] Scheduling initial queryOrderStatus for ${orderId}`);
@@ -192,6 +206,16 @@ export default function PurchasePage() {
         toast.error("正在处理上一个订单，请稍候...");
         return;
     }
+
+    // --- 新增：获取 token ---
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error("Token not found in localStorage during handlePayment.");
+      toast.error("用户认证失败，请重新登录后再尝试购买");
+      setIsLoading(false); // 重置加载状态
+      return;
+    }
+    // --- 结束新增 ---
 
     const selectedPlanDetails = plans.find(p => p.id === selectedPlan);
     if (!selectedPlanDetails) {
@@ -216,6 +240,8 @@ export default function PurchasePage() {
             method: 'POST',
             headers: {
             'Content-Type': 'application/json',
+            // --- 新增：添加 Authorization 头 ---
+            'Authorization': token,
             },
             body: JSON.stringify({
             user_id: userId,
@@ -296,7 +322,7 @@ export default function PurchasePage() {
         </div>
         {/* --- End Logo Section --- */}
         <Toaster position="top-center" reverseOrder={false} />
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8 mt-20">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-xs p-8 mt-20">
             {/* User ID display remains at the top */}
             <div className="flex justify-center items-baseline gap-3 mb-10">
                 {isClient && userId && ( <span className="text-xl whitespace-nowrap">为用户 <span className="font-bold">{userId}</span> 购买语音合成字数</span> )}
@@ -310,21 +336,23 @@ export default function PurchasePage() {
 
                     {/* --- Left Column (Plans & Action) --- */}
                     <div className="w-full md:w-2/3 flex flex-col">
-                        {/* Plan Selection Grid - Adjusted columns for narrower space */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10"> {/* Changed md:grid-cols-4 to sm:grid-cols-2 */}
+                        {/* Plan Selection Grid - Changed to single column */}
+                        <div className="grid grid-cols-1 gap-6 mb-10"> {/* Removed sm:grid-cols-2 */}
                             {plans.map((plan) => (
                                 <div
                                     key={plan.id}
-                                    className={`p-6 border-2 rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 ${
+                                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 ${
                                         selectedPlan === plan.id
                                             ? "border-blue-500 bg-blue-50 shadow-lg"
                                             : "border-gray-200 hover:border-blue-300 hover:shadow-md"
                                     } ${isLoading || !!currentOrderId ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     onClick={() => !(isLoading || !!currentOrderId) && setSelectedPlan(plan.id)}
                                 >
-                                    <h2 className="text-xl font-semibold mb-2 text-gray-900">{plan.name}</h2>
-                                    <p className="text-2xl font-bold text-blue-600 mb-2">{plan.price}</p>
-                                    <p className="text-sm text-gray-500">{plan.unitPrice}</p>
+                                    <div className="flex items-baseline justify-between space-x-4"> {/* Use justify-between for spacing */}
+                                        <h2 className="text-xl font-semibold text-gray-900 whitespace-nowrap">{plan.name}/不限时</h2>
+                                        <p className="text-sm text-gray-500 whitespace-nowrap">{plan.unitPrice}</p>
+                                        <p className="text-2xl font-bold text-blue-600 whitespace-nowrap">{plan.price}</p>
+                                    </div>
                                 </div>
                             ))}
                         </div>

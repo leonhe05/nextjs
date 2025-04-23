@@ -315,8 +315,8 @@ export default function HomePageClient() {
     }
 
     // 2. Check character limit
-    if (totalLength > 5000) {
-      toast.error('单次合成字数不能超过 5000 字');
+    if (totalLength > 3000) {
+      toast.error('单次合成字数不能超过 3000 字');
       return;
     }
 
@@ -522,6 +522,9 @@ export default function HomePageClient() {
         <div className="h-16 w-px bg-gray-300"></div>
         <p className="flex-1 text-base sm:text-s text-gray-600 text-left">
           基于大模型全新升级的语音合成，不仅让音色拥有更高的自然度，还能够依据上下文，智能预测文本的情绪、语调等信息，进而自动匹配与之相应的情感表达。
+          <a href="https://free.ispeaker.cn" className="text-blue-800 underline  ml-2">
+            使用历史免费版
+          </a>
         </p>
       </div>
 
