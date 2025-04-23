@@ -87,7 +87,7 @@ export default function PurchasePage() {
         // 如果正在轮询，避免重复抛出错误干扰用户
         return;
       }
-      const queryUrl = `${apiBaseUrl}queryOrder`;
+      const queryUrl = `${apiBaseUrl}/queryOrder`;
 
       const response = await fetch(queryUrl, {
         method: 'POST',
