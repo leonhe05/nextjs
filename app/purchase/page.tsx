@@ -133,7 +133,7 @@ export default function PurchasePage() {
         // 支付成功
         console.log("Payment successful for order:", orderId, "Response data:", data);
         toast.dismiss(); // 清除所有提示，包括之前的扫码提示
-        toast.success('支付成功！正在跳转...', { duration: 3000 }); // 显示成功提示，持续3秒
+        toast.success('支付成功！正在跳转...', { duration: 1000 }); // 显示成功提示，持续3秒
 
         // 设置 currentOrderId 为 null，将触发 useEffect 清理轮询
         console.log("[queryOrderStatus] Payment successful. Setting currentOrderId to null to stop polling.");
@@ -185,7 +185,7 @@ export default function PurchasePage() {
 
     console.log(`[startPolling] Starting polling execution for order_id: ${orderId}`);
     toast.dismiss(); // 清除之前的 "创建订单" loading
-    toast.loading('请扫描二维码完成支付。支付成功后将自动跳转...', { duration: 300000 }); // 持续10分钟或直到被清除
+    toast.loading('支付成功后将自动跳转...', { duration: 300000 });
 
     // 立即执行一次查询（稍微延迟以给后端一点时间处理）
     console.log(`[startPolling] Scheduling initial queryOrderStatus for ${orderId}`);
