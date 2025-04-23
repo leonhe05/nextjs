@@ -243,69 +243,104 @@ export default function HomePageClient() {
     setShowSplitterModal(false);
   };
 
-  // Function to handle the text splitting (restored to original logic)
+  // Function to handle the text splitting (modified for quote-based splitting and delay)
   const handleSplitConfirm = async (textToSplit: string) => {
     setIsSplitLoading(true); // Start loading
-    // Split the text using punctuation marks
-    const splitTexts = textToSplit.split(/[。？！]/g).filter(sentence => sentence.trim());
+    handleCloseSplitterModal(); // Close modal immediately
+
+    // Regex to split by Chinese quotes, keeping delimiters and capturing content inside/outside
+    const regex = /(“[^”]*”)|([^“”]+)/g;
+    const splitSegments = textToSplit.match(regex)?.map(s => s.trim()).filter(s => s) || [];
+
+    if (splitSegments.length === 0) {
+        toast.error("未找到可拆分的对话或旁白。");
+        setIsSplitLoading(false);
+        return;
+    }
 
     // Find the message that needs to be split
     const messageToSplitIndex = messages.findIndex(msg => msg.id === focusedMessageId);
     if (messageToSplitIndex === -1) {
       console.error("Focused message for splitting not found.");
+      toast.error("无法找到要拆分的原始消息。");
       setIsSplitLoading(false);
       return;
     }
     const messageToSplit = messages[messageToSplitIndex];
 
-    // Prepare new messages based on split text
-    const newMessages: MessageItem[] = [];
-    let currentId = nextId.current;
-    splitTexts.forEach(sentence => {
-      newMessages.push({
-        id: currentId++,
-        text: sentence.trim(),
-        modelName: messageToSplit.modelName, // Keep the original model and avatar
-        avator: messageToSplit.avator
-      });
-    });
-    nextId.current = currentId; // Update the next available ID
+    // Prepare the array of new messages without IDs yet
+    const preparedMessages = splitSegments.map(segment => {
+        // Remove quotes if they exist
+        const text = segment.startsWith('"') && segment.endsWith('"')
+            ? segment.slice(1, -1).trim()
+            : segment.trim();
+        return {
+            text: text,
+            modelName: messageToSplit.modelName, // Keep the original model and avatar
+            avator: messageToSplit.avator
+        };
+    }).filter(msg => msg.text); // Filter out empty messages again after trimming quotes
 
-    // Update the messages state by replacing the original message with the new ones
-    setMessages(prevMessages => [
-      ...prevMessages.slice(0, messageToSplitIndex),
-      ...newMessages,
-      ...prevMessages.slice(messageToSplitIndex + 1)
-    ]);
-
-    // Close modal and stop loading
-    handleCloseSplitterModal();
-
-    // Focus the first newly created message, or handle cases where no new messages were created
-    if (newMessages.length > 0) {
-      setFocusedMessageId(newMessages[0].id);
-    } else {
-      // If splitting resulted in no new messages (e.g., only punctuation),
-      // try to focus the message that was before the split position, or the first message.
-      const focusTargetIndex = Math.max(0, messageToSplitIndex - 1);
-      const updatedMessages = messages.slice(0, messageToSplitIndex).concat(messages.slice(messageToSplitIndex + 1)); // Simulate state after removal but before new messages
-      const newFocusId = updatedMessages[focusTargetIndex]?.id || (updatedMessages.length > 0 ? updatedMessages[0].id : null);
-
-      if (newFocusId) {
-          setFocusedMessageId(newFocusId);
-      } else {
-           // If the list becomes empty, add a default message
-           setMessages([{
-             id: 1,
-             text: "",
-             modelName: defaultModelName,
-             avator: defaultAvator
-           }]);
-           setFocusedMessageId(1);
-           nextId.current = 2; // Reset ID counter
-      }
+    if (preparedMessages.length === 0) {
+        toast.error("拆分后未生成有效对话。");
+        setIsSplitLoading(false);
+        // Optionally remove the original message if it was just quotes/whitespace
+        // setMessages(prev => prev.filter(m => m.id !== focusedMessageId));
+        return;
     }
-     setIsSplitLoading(false); // Ensure loading is stopped
+
+    // Get the current state *before* starting the delayed additions
+    const originalMessages = [...messages];
+
+    // Function to add messages one by one with delay
+    const addMessagesWithDelay = (index: number, currentMessagesState: MessageItem[], currentNextId: number) => {
+      if (index >= preparedMessages.length) {
+          setIsSplitLoading(false); // Stop loading after all messages are added
+          // Focus the first newly added message ID
+          if (preparedMessages.length > 0) {
+              const firstNewMessageId = currentNextId - preparedMessages.length; // Calculate the ID of the first added message
+              setFocusedMessageId(firstNewMessageId);
+          }
+          return;
+      }
+
+      const newMsgData = preparedMessages[index];
+      const newId = currentNextId;
+      const newMessage: MessageItem = {
+        ...newMsgData,
+        id: newId,
+      };
+
+      // Calculate insert position based on the *original* index
+      const insertIndex = messageToSplitIndex + index;
+
+      // Update state - important to use the functional update form of setMessages
+      setMessages(prevMessages => {
+          // Find the current insert index in the potentially updated prevMessages
+          const currentInsertIndex = prevMessages.findIndex(m => m.id === messageToSplit.id) + 1 + index; // +1 because we insert *after* the original (or its replacement)
+
+          // Create the new array with the inserted message
+          const updatedMessages = [
+              ...prevMessages.slice(0, currentInsertIndex),
+              newMessage,
+              ...prevMessages.slice(currentInsertIndex)
+          ];
+          return updatedMessages;
+      });
+
+
+      // Schedule the next addition
+      setTimeout(() => {
+        addMessagesWithDelay(index + 1, currentMessagesState, currentNextId + 1); // Pass updated nextId
+      }, 300); // 300ms delay
+    };
+
+    // Start the process: Remove the original message first, then add new ones delayed
+    setMessages(prev => prev.filter(m => m.id !== focusedMessageId));
+    // Ensure the nextId state is updated correctly *before* starting the loop
+    const initialNextId = nextId.current;
+    nextId.current = initialNextId + preparedMessages.length; // Reserve IDs
+    addMessagesWithDelay(0, originalMessages, initialNextId); // Start adding with the initial nextId
   };
 
   // Function to handle synthesis
