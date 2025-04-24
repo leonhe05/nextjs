@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "I Speaker | 专业有声书制作",
+  title: "文字转语音 |专业有声书制作 | I Speaker",
   description: "AI文本转语音|AI自动多角色配音|AI超拟人音色|AI语音合成|配音|TTS|文本转语音|语音合成",
   icons: {
     icon: '/logo.png',
