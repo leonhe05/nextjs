@@ -31,13 +31,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        <footer className="text-center p-4 mt-8 text-gray-500 text-sm">
-          <p>
-            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
-              粤ICP备2025407777号-1
-            </a>
-          </p>
-        </footer>
       </body>
     </html>
   );
