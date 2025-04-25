@@ -749,14 +749,11 @@ export default function HomePageClient() {
               </div>
               <div>
                   <p className="font-semibold text-gray-800">3. 还有那些使用说明？</p>
-                  <p className="text-gray-600 mt-1">答：点击播音员头像即可试听该播音员音色；本站提供AI自动多角色拆分功能，点击AI多角色自动拆分按钮，在弹窗中输入一段文本，AI可自动分析文本中各个角色的对话，并自动按角色拆分，填入左侧对话框中；可点击左侧对话框下方的 "+" 号来添加对话，可为每个对话设置不同的播音员，点击对话框右侧的 "-" 号按钮，可删除该段对话。</p>
+                  <p className="text-gray-600 mt-1">答：点击播音员头像即可试听该播音员音色；本站提供AI自动多角色拆分功能，点击AI多角色自动拆分按钮，在弹窗中输入一段文本，AI可自动分析文本中各个角色的对话，并自动按角色拆分，填入左侧对话框中；可点击左侧对话框下方的 "+" 号来添加对话，可为每个对话设置不同的播音员，点击对话框右侧的 "-" 号按钮，可删除该段对话。联系微信：text_to_speech
+                  </p>
               </div>
           </div>
       </div>
-
-      <footer className="row-start-5 flex text-sm gap-[24px] flex-wrap items-center justify-center text-gray-600">
-          联系微信：text_to_speech
-      </footer>
 
       <SplitterModal isOpen={showSplitterModal} onClose={handleCloseSplitterModal} onSplitConfirm={handleSplitConfirm} />
     </div>
