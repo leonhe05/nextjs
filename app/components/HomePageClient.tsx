@@ -62,8 +62,12 @@ export default function HomePageClient() {
 
   // --- 新增：页面加载后请求接口 ---
   useEffect(() => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL; // Needs NEXT_PUBLIC_ prefix for client-side
     const fetchData = async () => {
-      fetch('https://service.ispeaker.cn/tts/online');
+      fetch(`${baseUrl}/online`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }
+      });
     };
     fetchData();
   }, []); // 空依赖数组确保只在挂载时运行一次
