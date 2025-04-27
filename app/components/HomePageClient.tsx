@@ -763,7 +763,7 @@ export default function HomePageClient() {
           </div>
       </div>
 
-      <footer className="text-center p-4 mt-8 text-gray-500 text-sm">
+      <footer className="text-center mt-16 text-gray-900 text-sm">
           <p>
             <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
               粤ICP备2025407777号-1
