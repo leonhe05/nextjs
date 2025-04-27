@@ -63,7 +63,7 @@ export default function HomePageClient() {
   // --- 新增：页面加载后请求接口 ---
   useEffect(() => {
     const fetchData = async () => {
-      fetch('https://service.ispeaker.cn/online');
+      fetch('https://service.ispeaker.cn/tts/online');
     };
     fetchData();
   }, []); // 空依赖数组确保只在挂载时运行一次
