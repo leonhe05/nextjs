@@ -60,6 +60,14 @@ export default function HomePageClient() {
   // Find the config for the currently active tab
   const activeConfig = modelConfigs.find(config => config.id === activeTab);
 
+  // --- 新增：页面加载后请求接口 ---
+  useEffect(() => {
+    const fetchData = async () => {
+      fetch('https://service.ispeaker.cn/online');
+    };
+    fetchData();
+  }, []); // 空依赖数组确保只在挂载时运行一次
+
   // Effect for setting isClient flag and loading user data from localStorage
   useEffect(() => {
     setIsClient(true); // Set client flag only after mount
