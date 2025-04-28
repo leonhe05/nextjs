@@ -654,7 +654,7 @@ export default function HomePageClient() {
 
       <div className="row-start-2 text-center">
           <h2 className="text-xl font-medium">
-              <b>快速开始</b>
+              <b>快速开始/免登录试用</b>
           </h2>
       </div>
 
