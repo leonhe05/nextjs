@@ -13,6 +13,7 @@ import { SortableMessage, MessageItem } from './SortableMessage'; // Import the 
 import { SplitterModal } from './SplitterModal'; // Import the new SplitterModal component
 import { ModelGrid } from './ModelGrid'; // Import the new ModelGrid component
 import { ControlPanel } from './ControlPanel'; // Import the new ControlPanel component
+import { default_api } from "./tools";
 
 // Main component logic moved here
 export default function HomePageClient() {
@@ -261,7 +262,7 @@ export default function HomePageClient() {
     handleCloseSplitterModal(); // Close modal immediately
 
     // Regex to split by Chinese quotes, keeping delimiters and capturing content inside/outside
-    const regex = /(“[^”]*”)|([^“”]+)/g;
+    const regex = /(“[^" ]*”)|([^" "]+)/g;
     const splitSegments = textToSplit.match(regex)?.map(s => s.trim()).filter(s => s) || [];
 
     if (splitSegments.length === 0) {
@@ -410,23 +411,21 @@ export default function HomePageClient() {
       audio_sample: 24000,
     };
 
-    if (!isLoggedIn || !token) {
-      toast.error('右上角扫码登录后再进行语音合成');
-      setShowModal(true);
-      setIsSynthesizing(false);
-      return;
-    }
-
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
       const apiUrl = `${baseUrl}/synthesize`; 
 
+      // 构建请求头，仅在登录时包含 Authorization
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = token;
+      }
+
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token
-        },
+        headers: headers, // 使用条件构建的 headers
         body: JSON.stringify(requestBody),
       });
 
