@@ -445,7 +445,13 @@ export default function HomePageClient() {
       } else if (contentType.startsWith('application/json')) {
         // 处理 JSON 响应（无论状态码是否为 200）
         const result = await response.json();
-        toast.error(`合成失败: ${result.ret_msg || '未知错误'}`);
+        if (result.ret_code === "41") { // 新增：检查 ret_code 是否为 "41"
+          handleLogout(); // 清除登录信息
+          toast.error('登录已失效，请重新登录后再试。');
+          setShowModal(true); // 可选：自动弹出登录框
+        } else {
+          toast.error(`合成失败: ${result.ret_msg || '未知错误'}`);
+        }
       } else {
         toast.error('合成响应无效，未收到预期的数据');
       }
