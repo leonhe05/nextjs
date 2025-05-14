@@ -446,7 +446,7 @@ export default function HomePageClient() {
         // 处理 JSON 响应（无论状态码是否为 200）
         const result = await response.json();
         if (result.ret_code === "41") { // 新增：检查 ret_code 是否为 "41"
-          handleLogout(); // 清除登录信息
+          handleLogoutWithoutToast(); // 清除登录信息
           toast.error('登录已失效，请重新登录后再试。');
           setShowModal(true); // 可选：自动弹出登录框
         } else {
@@ -546,6 +546,23 @@ export default function HomePageClient() {
     // Close modal
     setShowModal(false);
     toast.success('已登出');
+  };
+
+  const handleLogoutWithoutToast = () => {
+    // Clear local storage
+    localStorage.removeItem('userId');
+    localStorage.removeItem('token');
+    localStorage.removeItem('remainWords');
+    localStorage.removeItem('isLoggedIn');
+
+    // Reset state
+    setIsLoggedIn(false);
+    setUserId(null);
+    setToken(null);
+    setRemainWords(null);
+
+    // Close modal
+    setShowModal(false);
   };
 
   return (
